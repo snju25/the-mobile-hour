@@ -1,30 +1,32 @@
-import express, { response } from 'express'
+import express from 'express';
 import session from 'express-session';
+import helmet from 'helmet';
+import cors from 'cors';
 
-const app = express()
-const port = process.env.PORT || 5000;
+const app = express();
+const port = process.env.PORT || 5000; // Using environment variable for port
 
-// setup and use session middleware
-app.use(
-    session({
-        secret: "secret phrase",
-        resave: false,
-        saveUninitialized: false,
-        cookie: { secure: false },
-    })
-);
+// Security enhancements
+app.use(helmet());
+app.use(cors()); // Configure appropriately based on your needs
 
-// Enable support for URL-encoded request bodies (form posts)
-app.use(express.urlencoded({extended:true}))
+// Session configuration
+const sessionConfig = {
+    secret: process.env.SESSION_SECRET || 'default_secret', // Environment variable for secret
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: process.env.NODE_ENV === 'production' } // Secure cookie in production
+};
+app.use(session(sessionConfig));
 
+// Enable URL-encoded and JSON request bodies
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json()); // For JSON payloads
 
+// View engine and static files setup
+app.set("view engine", "ejs");
+app.use(express.static("static"));
 
-// Setup and use the EJS view engine
-app.set("view engine", "ejs")
-
-
-// setup and use static files middleware
-app.use(express.static("static"))
 
 // Import and use controllers
 import productController from './controllers/product.js'
@@ -46,12 +48,16 @@ import changelogController from './controllers/changelog.js';
 app.use(changelogController)
 
 // setup 404 and root page redirects
-app.get("*",(request,response)=>{
-    response.status(400).render("status.ejs",{
-        status:"404 Not Found"
-    })
-})
+// Error handling and 404
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
+});
 
-app.listen(port,()=>{
-    console.log(`Express Server started on local host on http://localhost:${port}`);
-})
+app.get("*", (req, res) => {
+    res.status(404).render("status.ejs", { status: "404 Not Found" });
+});
+
+app.listen(port, () => {
+    console.log(`Express Server started on http://localhost:${port}`);
+});
